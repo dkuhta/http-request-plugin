@@ -1,13 +1,19 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-    <f:entry field="url" title="URL" help="/plugin/http_request/help-url.html">
+    <!--<f:entry field="url" title="URL" help="/plugin/http_request/help-url.html">
+        <f:textbox />
+    </f:entry>-->
+    <!--<f:entry field="httpMode" title="HTTP mode" help="/plugin/http_request/help-httpMode.html">
+        <f:select />
+    </f:entry>-->
+    <f:entry field="accessToken" title="Access Token" help="/plugin/http_request/help-url.html">
         <f:textbox />
     </f:entry>
-    <f:entry field="httpMode" title="HTTP mode" help="/plugin/http_request/help-httpMode.html">
-        <f:select />
+    <f:entry field="serviceId" title="Service Id" help="/plugin/http_request/help-url.html">
+        <f:textbox />
     </f:entry>
 
-    <f:advanced>
+    <!--<f:advanced>
         <f:section title="Authorization">
             <f:entry field="authentication" title="Authenticate" help="/plugin/http_request/help-authentication.html">
                 <f:select />
@@ -49,5 +55,5 @@
                 <f:booleanRadio />
             </f:entry>
         </f:section>
-    </f:advanced>
+    </f:advanced>-->
 </j:jelly>

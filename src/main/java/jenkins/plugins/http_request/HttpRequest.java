@@ -1,38 +1,12 @@
 package jenkins.plugins.http_request;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.lang.NumberFormatException;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.Nonnull;
-import javax.servlet.ServletException;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
-import com.google.common.primitives.Ints;
-import hudson.AbortException;
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.Util;
+import hudson.*;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
-import hudson.model.Items;
-import hudson.model.Run;
-import hudson.model.TaskListener;
+import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -44,26 +18,36 @@ import jenkins.plugins.http_request.auth.FormAuthentication;
 import jenkins.plugins.http_request.util.HttpClientUtil;
 import jenkins.plugins.http_request.util.HttpRequestNameValuePair;
 import jenkins.plugins.http_request.util.RequestAction;
-import net.sf.json.JSONObject;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.SystemDefaultHttpClient;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
-import org.apache.http.util.EntityUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+
+import javax.annotation.Nonnull;
+import javax.servlet.ServletException;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * @author Janario Oliveira
  */
 public class HttpRequest extends Builder {
 
-    private @Nonnull String url;
+    private @Nonnull String url               = DescriptorImpl.url;
     private HttpMode httpMode                 = DescriptorImpl.httpMode;
     private Boolean passBuildParameters       = DescriptorImpl.passBuildParameters;
     private String validResponseCodes         = DescriptorImpl.validResponseCodes;
@@ -75,11 +59,35 @@ public class HttpRequest extends Builder {
     private Boolean consoleLogResponseBody    = DescriptorImpl.consoleLogResponseBody;
     private String authentication             = DescriptorImpl.authentication;
     private String requestBody                = DescriptorImpl.requestBody;
+    private String accessToken                = DescriptorImpl.accessToken;
+    private String serviceId                  = DescriptorImpl.serviceId;
     private List<HttpRequestNameValuePair> customHeaders = DescriptorImpl.customHeaders;
 
     @DataBoundConstructor
+    public HttpRequest() {
+    }
+
+   /* @DataBoundConstructor
     public HttpRequest(@Nonnull String url) {
         this.url = url;
+    }*/
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    @DataBoundSetter
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String getServiceId() {
+        return serviceId;
+    }
+
+    @DataBoundSetter
+    public void setServiceId(String serviceId) {
+        this.serviceId = serviceId;
     }
 
     @DataBoundSetter
@@ -218,7 +226,7 @@ public class HttpRequest extends Builder {
         final PrintStream logger = listener.getLogger();
         final EnvVars envVars = build.getEnvironment(listener);
         String evaluatedUrl;
-        evaluatedUrl = evaluate(url, build.getBuildVariableResolver(), envVars);
+        evaluatedUrl = evaluate(url + "/" + serviceId, build.getBuildVariableResolver(), envVars);
         final List<HttpRequestNameValuePair> params = createParameters(build, logger, envVars);
         ResponseContentSupplier responseContentSupplier = performHttpRequest(build, listener, evaluatedUrl, params);
 
@@ -330,6 +338,10 @@ public class HttpRequest extends Builder {
         for (HttpRequestNameValuePair header : customHeaders) {
             httpRequestBase.addHeader(header.getName(), header.getValue());
         }
+
+        if (accessToken != null) {
+            httpRequestBase.addHeader("x-access-token", accessToken);
+        }
         return httpRequestBase;
     }
 
@@ -370,7 +382,8 @@ public class HttpRequest extends Builder {
 
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        public static final HttpMode httpMode                  = HttpMode.GET;
+        public static final String   url                       = "https://g.codefresh.io/api/builds";
+        public static final HttpMode httpMode                  = HttpMode.POST;
         public static final Boolean  passBuildParameters       = false;
         public static final String   validResponseCodes        = "100:399";
         public static final String   validResponseContent      = "";
@@ -381,6 +394,8 @@ public class HttpRequest extends Builder {
         public static final Boolean  consoleLogResponseBody    = false;
         public static final String   authentication            = "";
         public static final String   requestBody               = "";
+        public static final String   accessToken               = "";
+        public static final String   serviceId                 = "";
         public static final List <HttpRequestNameValuePair> customHeaders = Collections.<HttpRequestNameValuePair>emptyList();
 
         public DescriptorImpl() {
@@ -394,7 +409,7 @@ public class HttpRequest extends Builder {
 
         @Override
         public String getDisplayName() {
-            return "HTTP Request";
+            return "Codefresh integration";
         }
 
         public ListBoxModel doFillHttpModeItems() {
